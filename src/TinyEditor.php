@@ -7,7 +7,6 @@ use Filament\Forms\Components\Concerns\HasExtraInputAttributes;
 use Filament\Forms\Components\Contracts;
 use Filament\Forms\Components\Field;
 use Filament\Support\Concerns\HasExtraAlpineAttributes;
-use Illuminate\Support\Str;
 
 class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Contracts\HasFileAttachments
 {
@@ -21,26 +20,39 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
     protected string $profile = 'default';
     protected bool $isSimple = false;
     protected string $direction;
+    protected int $width = 0;
+    protected int $height = 0;
     protected int $maxHeight = 0;
     protected int $minHeight = 500;
     protected int $previewMaxHeight = 0;
     protected int $previewMinHeight = 0;
+    protected int $tinyMaxWidth = 0;
+    protected int $minWidth = 500;
+    protected int $previewMaxWidth = 0;
+    protected int $previewMinWidth = 0;
     protected string $toolbar;
-    protected bool $toolbarSticky = false;
+    protected bool $toolbarSticky = true;
+    protected int $toolbarStickyOffset = 64;
+    protected string $toolbarMode = 'floating';
+    protected string $toolbarLocation = 'auto';
+    protected bool $inlineOption = false;
+    protected bool $toolbarPersist = false;
     protected bool $showMenuBar = false;
     protected array $externalPlugins;
+    protected array|\Closure  $customConfigs = [];
     protected bool $relativeUrls = false;
     protected bool $removeScriptHost = true;
     protected bool $convertUrls = true;
-    protected string $templates = '';
     protected string|bool $darkMode;
     protected string $skinsUI;
     protected string $skinsContent;
     protected string|\Closure $language;
-    protected string|array|bool $imageList = false;
+    protected string|array|bool|\Closure $imageList = false;
     protected string|array|bool $imageClassList = false;
+    protected string|bool|\Closure $imagesUploadUrl = false;
     protected bool $imageAdvtab = false;
     protected bool $imageDescription = true;
+    protected bool|string $resize = false;
 
     protected string $tiny;
     protected string $languageVersion;
@@ -72,16 +84,33 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
             $toolbar = config('filament-tinyeditor.profiles.' . $this->profile . '.toolbar');
         }
 
-        if (! Str::contains($this->templates, 'template')) {
-            $toolbar .= ' template';
+        return $toolbar;
+    }
+
+    public function setCustomConfigs(array|\Closure $configs): static
+    {
+        $this->customConfigs = $configs;
+
+        return $this;
+    }
+
+    public function getCustomConfigs(): string
+    {
+        $defaultConfigs = config("filament-tinyeditor.profiles.{$this->profile}.custom_configs", []);
+        $customConfigs = $this->evaluate($this->customConfigs) ?? [];
+
+        $mergedConfigs = array_replace_recursive($customConfigs, $defaultConfigs);
+
+        if (empty($mergedConfigs)) {
+            return '{}';
         }
 
-        return $toolbar;
+        return str_replace('"', "'", json_encode($mergedConfigs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     public function getPlugins(): string
     {
-        $plugins = 'accordion autoresize codesample directionality advlist autolink link image lists charmap preview anchor pagebreak searchreplace wordcount visualblocks visualchars code fullscreen insertdatetime media table emoticons template help';
+        $plugins = 'accordion autoresize codesample directionality advlist autolink link image lists charmap preview anchor pagebreak searchreplace wordcount visualblocks visualchars code fullscreen insertdatetime media table emoticons help';
 
         if ($this->isSimple()) {
             $plugins = 'autoresize directionality emoticons link wordcount';
@@ -90,10 +119,6 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
         if (config('filament-tinyeditor.profiles.' . $this->profile . '.plugins')) {
             $plugins = config('filament-tinyeditor.profiles.' . $this->profile . '.plugins');
         }
-
-        // if (! Str::contains($this->templates, 'template')) {
-        //     $plugins .= ' template';
-        // }
 
         return $plugins;
     }
@@ -106,18 +131,6 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
     public function getFileAttachmentsDirectory(): ?string
     {
         return filled($directory = $this->evaluate($this->fileAttachmentsDirectory)) ? $directory : config('filament-tinyeditor.profiles.' . $this->profile . '.upload_directory');
-    }
-
-    public function templates(string $templates): static
-    {
-        $this->templates = addslashes($templates);
-
-        return $this;
-    }
-
-    public function getTemplates(): string
-    {
-        return $this->templates;
     }
 
     public function language(string | \Closure $language): static
@@ -168,7 +181,8 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
             'nl' => 'nl',
             'oc' => 'oc',
             'pl' => 'pl',
-            'pt' => 'pt_BR',
+            'pt_PT' => 'pt_PT',
+            'pt_BR' => 'pt_BR',
             'ro' => 'ro',
             'ru' => 'ru',
             'sk' => 'sk',
@@ -234,7 +248,8 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
             'nl' => 'tinymce-lang-nl',
             'oc' => 'tinymce-lang-oc',
             'pl' => 'tinymce-lang-pl',
-            'pt' => 'tinymce-lang-pt_BR',
+            'pt_PT' => 'tinymce-lang-pt_PT',
+            'pt_BR' => 'tinymce-lang-pt_BR',
             'ro' => 'tinymce-lang-ro',
             'ru' => 'tinymce-lang-ru',
             'sk' => 'tinymce-lang-sk',
@@ -261,7 +276,7 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
 
     public function getDirection()
     {
-        if (! $this->direction || $this->direction == 'auto') {
+        if (!$this->direction || $this->direction == 'auto') {
             return match ($this->getInterfaceLanguage()) {
                 'ar' => 'rtl',
                 'fa' => 'rtl',
@@ -300,15 +315,6 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
         return $this;
     }
 
-    public function getCustomConfigs(): string
-    {
-        if (config('filament-tinyeditor.profiles.' . $this->profile . '.custom_configs')) {
-            return str_replace('"', "'", json_encode(config('filament-tinyeditor.profiles.' . $this->profile . '.custom_configs')));
-        }
-
-        return '';
-    }
-
     public function darkMode(): string | bool
     {
         return $this->darkMode;
@@ -322,6 +328,79 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
     public function skinsContent(): string
     {
         return $this->skinsContent;
+    }
+
+    /** */
+    public function getWidth(): int
+    {
+        return $this->width;
+    }
+
+    public function width(int $width): static
+    {
+        $this->width = $width;
+
+        return $this;
+    }
+
+    public function getTinyMaxWidth(): int
+    {
+        return $this->tinyMaxWidth;
+    }
+
+    public function maxTinyWidth(int $maxWidth): static
+    {
+        $this->tinyMaxWidth = $maxWidth;
+
+        return $this;
+    }
+
+    public function getMinWidth(): int
+    {
+        return $this->minWidth;
+    }
+
+    public function minWidth(int $minWidth): static
+    {
+        $this->minWidth = $minWidth;
+
+        return $this;
+    }
+
+    public function getPreviewMaxWidth(): int
+    {
+        return $this->previewMaxWidth;
+    }
+
+    public function previewMaxWidth(int $previewMaxWidth): static
+    {
+        $this->previewMaxWidth = $previewMaxWidth;
+
+        return $this;
+    }
+
+    public function getPreviewMinWidth(): int
+    {
+        return $this->previewMinWidth;
+    }
+
+    public function previewMinWidth(int $previewMinWidth): static
+    {
+        $this->previewMinWidth = $previewMinWidth;
+
+        return $this;
+    }
+
+    public function getHeight(): int
+    {
+        return $this->height;
+    }
+
+    public function height(int $height): static
+    {
+        $this->height = $height;
+
+        return $this;
     }
 
     public function getMaxHeight(): int
@@ -372,6 +451,18 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
         return $this;
     }
 
+    public function getResize(): bool|string
+    {
+        return is_bool($this->resize) ? $this->resize : "'$this->resize'";
+    }
+
+    public function resize(bool|string $resize): static
+    {
+        $this->resize = $resize;
+
+        return $this;
+    }
+
     public function getToolbarSticky(): bool
     {
         return $this->toolbarSticky;
@@ -380,6 +471,66 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
     public function toolbarSticky(bool $toolbarSticky): static
     {
         $this->toolbarSticky = $toolbarSticky;
+
+        return $this;
+    }
+
+    public function getToolbarStickyOffset(): int
+    {
+        return $this->toolbarStickyOffset;
+    }
+
+    public function toolbarStickyOffset(int $toolbarStickyOffset): static
+    {
+        $this->toolbarStickyOffset = $toolbarStickyOffset;
+
+        return $this;
+    }
+
+    public function getToolbarMode(): string
+    {
+        return $this->toolbarMode;
+    }
+
+    public function toolbarMode(string $toolbarMode): static
+    {
+        $this->toolbarMode = $toolbarMode;
+
+        return $this;
+    }
+
+    public function getToolbarLocation(): string
+    {
+        return $this->toolbarLocation;
+    }
+
+    public function toolbarLocation(string $toolbarLocation): static
+    {
+        $this->toolbarLocation = $toolbarLocation;
+
+        return $this;
+    }
+
+    public function getInlineOption(): bool
+    {
+        return $this->inlineOption;
+    }
+
+    public function inlineTiny(bool $inlineOption): static
+    {
+        $this->inlineOption = $inlineOption;
+
+        return $this;
+    }
+
+    public function getToolbarPersist(): bool
+    {
+        return $this->toolbarPersist;
+    }
+
+    public function toolbarPersist(bool $toolbarPersist): static
+    {
+        $this->toolbarPersist = $toolbarPersist;
 
         return $this;
     }
@@ -432,9 +583,13 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
         return $this;
     }
 
-    public function getExternalPlugins(): array
+    public function getExternalPlugins(): string
     {
-        return $this->externalPlugins ?? [];
+        if (config('filament-tinyeditor.profiles.' . $this->profile . '.external_plugins')) {
+            return str_replace('"', "'", json_encode(config('filament-tinyeditor.profiles.' . $this->profile . '.external_plugins')));
+        }
+
+        return '{}';
     }
 
     public function setExternalPlugins(array $plugins): static
@@ -444,7 +599,7 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
         return $this;
     }
 
-    public function imageList(string|array $list): static
+    public function imageList(string|array|\Closure $list): static
     {
         if (is_array($list)) {
             $list = str_replace('"', "'", json_encode($list));
@@ -455,12 +610,19 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
         return $this;
     }
 
-    public function getImageList(): string|bool
+    public function getImageList(): string | bool
     {
-        if (!$this->imageList) {
-            return 'false';
+        if (! $this->imageList) {
+            return config('filament-tinyeditor.profiles.' . $this->profile . '.image_list') ?? 'false';
         }
-        return $this->imageList;
+
+        if (is_string($this->imageList)) {
+            return $this->imageList;
+        }
+
+        $imageList = $this->evaluate($this->imageList);
+
+        return str_replace('"', "'", json_encode($imageList));
     }
 
     public function imageClassList(string|array $list): static
@@ -474,10 +636,10 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
         return $this;
     }
 
-    public function getImageClassList(): string|bool
+    public function getImageClassList(): ?string
     {
         if (!$this->imageClassList) {
-            return 'false';
+            return null;
         }
         return $this->imageClassList;
     }
@@ -487,9 +649,32 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
         return $this->imageAdvtab ?? false;
     }
 
-    public function imageDescription(): bool
+    public function imageDescription(bool $imageDescription): static
     {
-        return $this->imageDescription ?? true;
+        $this->imageDescription = $imageDescription;
+
+        return $this;
+    }
+
+    public function getImageDescription(): bool
+    {
+        return config('filament-tinyeditor.profiles.' . $this->profile . '.image_description') ?? $this->imageDescription;
+    }
+
+    public function imagesUploadUrl(string | \Closure $url): static
+    {
+        $this->imagesUploadUrl = $url;
+
+        return $this;
+    }
+
+    public function getImagesUploadUrl(): string | bool
+    {
+        if (! $this->imagesUploadUrl) {
+            return config('filament-tinyeditor.profiles.' . $this->profile . '.images_upload_url') ?? '';
+        }
+
+        return $this->evaluate($this->imagesUploadUrl);
     }
 
     public function options(array $options): static
