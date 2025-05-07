@@ -8,6 +8,8 @@ export default function tinyeditor({
 	language = "en",
 	language_url = null,
 	directionality = "ltr",
+	customButtons = null,
+	customButtonsLabel = 'Custom buttons',
 	height = null,
 	max_height = 0,
 	min_height = 100,
@@ -52,6 +54,8 @@ export default function tinyeditor({
 		language: language,
 		language_url: language_url,
 		directionality: directionality,
+		customButtons: customButtons,
+		customButtonsLabel: customButtonsLabel,
 		height: height,
 		max_height: max_height,
 		min_height: min_height,
@@ -243,6 +247,22 @@ export default function tinyeditor({
 							target.setAttribute("x-trap.noscroll", "isOpen");
 						}
 					});
+
+					if (customButtons) {
+						editor.ui.registry.addSplitButton('customButtons', {
+							text: customButtonsLabel,
+							onAction: () => editor.insertContent(''),
+							onItemAction: (buttonApi, value) => editor.insertContent(value),
+							fetch: (callback) => {
+								const items = Object.entries(customButtons).map(([text, value]) => ({
+									type: 'choiceitem',
+									text: text,
+									value: value
+								}));
+								callback(items);
+							}
+						});
+					}
 
 					if (typeof setup === "function") {
 						setup(editor);

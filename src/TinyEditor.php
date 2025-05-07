@@ -57,6 +57,8 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
     protected string $tiny;
     protected string $languageVersion;
     protected string $languagePackage;
+    protected ?array $customButtons;
+    protected ?string $customButtonsLabel;
 
     protected function setUp(): void
     {
@@ -82,6 +84,10 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
 
         if (config('filament-tinyeditor.profiles.' . $this->profile . '.toolbar')) {
             $toolbar = config('filament-tinyeditor.profiles.' . $this->profile . '.toolbar');
+        }
+
+        if ($this->getCustomButtons()) {
+            $toolbar .= ' custombuttons';
         }
 
         return $toolbar;
@@ -706,5 +712,29 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
     public function getLicenseKey(): string
     {
         return config('filament-tinyeditor.license_key', 'gpl');
+    }
+
+    public function setCustomButtons(?array $customButtons): static
+    {
+        $this->customButtons = $customButtons;
+
+        return $this;
+    }
+
+    public function getCustomButtons(): array
+    {
+        return $this->customButtons ?? [];
+    }
+
+    public function setCustomButtonsLabel(string $customButtonsLabel): static
+    {
+        $this->customButtonsLabel = $customButtonsLabel;
+
+        return $this;
+    }
+
+    public function getCustomButtonsLabel(): string
+    {
+        return $this->customButtonsLabel ?? __('actions.import_data');
     }
 }

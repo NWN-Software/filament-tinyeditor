@@ -21,6 +21,8 @@
             language: '{{ $getInterfaceLanguage() }}',
             language_url: '{{ $getLanguageURL($getInterfaceLanguage()) }}',
             directionality: '{{ $getDirection() }}',
+            customButtons: @js($getCustomButtons()),
+            customButtonsLabel: '{{ $getCustomButtonsLabel() }}',
             @if ($getHeight())
             height: @js($getHeight()),
             @endif
