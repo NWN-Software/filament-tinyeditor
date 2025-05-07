@@ -86,7 +86,7 @@ class TinyEditor extends Field implements Contracts\CanBeLengthConstrained, Cont
             $toolbar = config('filament-tinyeditor.profiles.' . $this->profile . '.toolbar');
         }
 
-        if ($this->customButtons) {
+        if ($this->getCustomButtons()) {
             $toolbar .= ' custombuttons';
         }
 
