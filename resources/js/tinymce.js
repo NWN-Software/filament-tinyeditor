@@ -296,9 +296,15 @@ export default function tinyeditor({
 							progress(e.detail.progress);
 						};
 
+						const fileInfo = blobInfo.blob();
+
+						if (!fileInfo.name) {
+							fileInfo.name = 'tempFile';
+						}
+
 						$wire.upload(
 							`componentFileAttachments.${statePath}`,
-							blobInfo.blob(),
+							fileInfo,
 							finishCallback,
 							errorCallback,
 							progressCallback
